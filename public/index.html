@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Egresos</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: none;
+      background: #334155;
+      color: white;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #22c55e);
+      color: white;
+      cursor: pointer;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 15px;
+    }
+
+    .insight {
+      background: #0ea5e9;
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+
+    @media(max-width: 600px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>📊 Dashboard Financiero</h1>
+
+<!-- FORM -->
+<div class="card">
+  <h2>Registrar Egreso</h2>
+
+  <form id="form">
+    <div class="grid">
+      <input type="date" id="fecha" required>
+      <input type="number" id="monto" placeholder="Monto" required>
+    </div>
+
+    <input type="text" id="descripcion" placeholder="Descripción">
+
+    <select id="centro"></select>
+    <select id="categoria"></select>
+
+    <label><input type="checkbox" id="iva"> Incluye IVA</label>
+
+    <button type="submit">Guardar</button>
+  </form>
+</div>
+
+<!-- FILTROS -->
+<div class="card">
+  <h2>Filtros</h2>
+
+  <div class="grid">
+    <input type="number" id="mes" placeholder="Mes">
+    <input type="number" id="anio" placeholder="Año">
+  </div>
+
+  <button onclick="filtrarEgresos()">Filtrar</button>
+  <button onclick="descargarExcel()">Excel</button>
+
+  <h3>Total: $<span id="total">0</span></h3>
+</div>
+
+<!-- TABLA -->
+<div class="card">
+  <h2>Egresos</h2>
+  <table id="tabla">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Desc</th>
+        <th>Monto</th>
+        <th>Centro</th>
+        <th>Cat</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<!-- GRAFICAS -->
+<div class="card">
+  <h2>📊 Análisis</h2>
+  <canvas id="catChart"></canvas>
+  <canvas id="centroChart"></canvas>
+  <canvas id="mesChart"></canvas>
+</div>
+
+<!-- INSIGHTS -->
+<div class="card">
+  <h2>🧠 Insights</h2>
+  <div id="insights"></div>
+</div>
+
+</div>
+
+<script>
+
+let catChart, centroChart, mesChart;
+
+// CARGAR DATOS
+async function cargarCentros() {
+  const res = await fetch("/centros");
+  const data = await res.json();
+  data.forEach(c => centro.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
+}
+
+async function cargarCategorias() {
+  const res = await fetch("/categorias");
+  const data = await res.json();
+  data.forEach(c => categoria.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
+}
+
+// RENDER
+function renderTabla(data) {
+  const tbody = document.querySelector("#tabla tbody");
+  let total = 0;
+  tbody.innerHTML = "";
+
+  data.forEach(e => {
+    total += parseFloat(e.monto);
+    tbody.innerHTML += `
+      <tr>
+        <td>${e.fecha.split("T")[0]}</td>
+        <td>${e.descripcion}</td>
+        <td>$${e.monto}</td>
+        <td>${e.centro_costo || "-"}</td>
+        <td>${e.categoria || "-"}</td>
+      </tr>
+    `;
+  });
+
+  totalSpan.textContent = total.toLocaleString();
+
+  generarGraficas(data);
+  generarInsights(data);
+}
+
+// GRAFICAS
+function generarGraficas(data) {
+
+  const cat = {}, centro = {}, mes = {};
+
+  data.forEach(e => {
+    cat[e.categoria] = (cat[e.categoria] || 0) + +e.monto;
+    centro[e.centro_costo] = (centro[e.centro_costo] || 0) + +e.monto;
+
+    const m = e.fecha.split("-")[1];
+    mes[m] = (mes[m] || 0) + +e.monto;
+  });
+
+  if (catChart) catChart.destroy();
+  catChart = new Chart(catChartCanvas, {
+    type: "pie",
+    data: { labels: Object.keys(cat), datasets: [{ data: Object.values(cat) }] }
+  });
+
+  if (centroChart) centroChart.destroy();
+  centroChart = new Chart(centroChartCanvas, {
+    type: "bar",
+    data: { labels: Object.keys(centro), datasets: [{ data: Object.values(centro) }] }
+  });
+
+  if (mesChart) mesChart.destroy();
+  mesChart = new Chart(mesChartCanvas, {
+    type: "line",
+    data: { labels: Object.keys(mes), datasets: [{ data: Object.values(mes) }] }
+  });
+}
+
+// INSIGHTS
+function generarInsights(data) {
+  const div = document.getElementById("insights");
+  div.innerHTML = "";
+
+  const total = data.reduce((sum, e) => sum + +e.monto, 0);
+  const mayor = data.sort((a,b)=>b.monto-a.monto)[0];
+
+  div.innerHTML += `<div class="insight">💰 Total gastado: $${total}</div>`;
+  div.innerHTML += `<div class="insight">🔥 Mayor gasto: ${mayor.descripcion} ($${mayor.monto})</div>`;
+}
+
+// API
+async function cargarEgresos() {
+  const res = await fetch("/egresos");
+  renderTabla(await res.json());
+}
+
+async function filtrarEgresos() {
+  const res = await fetch(`/egresos/mes?mes=${mes.value}&anio=${anio.value}`);
+  renderTabla(await res.json());
+}
+
+function descargarExcel() {
+  window.open(`/egresos/excel?mes=${mes.value}&anio=${anio.value}`);
+}
+
+// FORM
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+
+  await fetch("/egresos", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      fecha: fecha.value,
+      tipo: "gasto",
+      descripcion: descripcion.value,
+      monto: +monto.value,
+      iva: iva.checked,
+      numero_factura: "",
+      comentarios: "",
+      centro_costo_id: +centro.value,
+      categoria_id: +categoria.value
+    })
+  });
+
+  cargarEgresos();
+});
+
+// INIT
+cargarCentros();
+cargarCategorias();
+cargarEgresos();
+
+</script>
+
+</body>
+</html>
