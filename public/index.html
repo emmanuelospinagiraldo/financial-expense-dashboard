@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard Financiero</title>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -70,6 +71,35 @@
       width: 100%;
       margin-top: 15px;
     }
+
+    @media (max-width: 768px) {
+
+  .container {
+    padding: 10px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    font-size: 20px;
+  }
+
+  button {
+    width: 100%;
+    font-size: 16px;
+  }
+
+  table {
+    font-size: 12px;
+  }
+
+  th, td {
+    padding: 6px;
+  }
+
+}
 
     .insight {
       background: #0ea5e9;
