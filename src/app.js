@@ -29,6 +29,28 @@ app.get("/test-db", async (req, res) => {
   }
 });
 
+// GET CENTROS
+app.get("/centros", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM centros_costos ORDER BY nombre");
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error centros:", error);
+    res.status(500).send("Error al obtener centros");
+  }
+});
+
+// GET CATEGORIAS
+app.get("/categorias", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM categorias ORDER BY nombre");
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error categorias:", error);
+    res.status(500).send("Error al obtener categorias");
+  }
+});
+
 // ✅ POST EGRESOS (CORREGIDO)
 app.post("/egresos", async (req, res) => {
     
