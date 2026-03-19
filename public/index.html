@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Dashboard Egresos</title>
+  <title>Dashboard Financiero</title>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -55,6 +55,11 @@
       cursor: pointer;
     }
 
+    .logout {
+      float: right;
+      background: red;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -72,19 +77,16 @@
       border-radius: 10px;
       margin-top: 10px;
     }
-
-    @media(max-width: 600px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
-    }
   </style>
 </head>
+
 <body>
 
 <div class="container">
 
-<h1>📊 Dashboard Financiero</h1>
+<h1>📊 Dashboard Financiero 
+<button class="logout" onclick="logout()">Salir</button>
+</h1>
 
 <!-- FORM -->
 <div class="card">
@@ -157,29 +159,62 @@
 
 <script>
 
-let catChart, centroChart, mesChart;
+// 🔐 BLOQUEAR SI NO HAY LOGIN
+const token = localStorage.getItem("token");
 
-// CARGAR DATOS
-async function cargarCentros() {
-  const res = await fetch("/centros");
-  const data = await res.json();
-  data.forEach(c => centro.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
+if (!token) {
+  window.location.href = "/login.html";
 }
 
-async function cargarCategorias() {
-  const res = await fetch("/categorias");
+// LOGOUT
+function logout() {
+  localStorage.removeItem("token");
+  window.location.href = "/login.html";
+}
+
+let catChart, centroChart, mesChart;
+
+// CARGAR CENTROS
+async function cargarCentros() {
+  const res = await fetch("/centros", {
+    headers: { Authorization: token }
+  });
   const data = await res.json();
-  data.forEach(c => categoria.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
+
+  const select = document.getElementById("centro");
+  select.innerHTML = "";
+
+  data.forEach(c => {
+    select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+  });
+}
+
+// CARGAR CATEGORIAS
+async function cargarCategorias() {
+  const res = await fetch("/categorias", {
+    headers: { Authorization: token }
+  });
+  const data = await res.json();
+
+  const select = document.getElementById("categoria");
+  select.innerHTML = "";
+
+  data.forEach(c => {
+    select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+  });
 }
 
 // RENDER
 function renderTabla(data) {
   const tbody = document.querySelector("#tabla tbody");
-  let total = 0;
+  const totalSpan = document.getElementById("total");
+
   tbody.innerHTML = "";
+  let total = 0;
 
   data.forEach(e => {
     total += parseFloat(e.monto);
+
     tbody.innerHTML += `
       <tr>
         <td>${e.fecha.split("T")[0]}</td>
@@ -203,27 +238,34 @@ function generarGraficas(data) {
   const cat = {}, centro = {}, mes = {};
 
   data.forEach(e => {
-    cat[e.categoria] = (cat[e.categoria] || 0) + +e.monto;
-    centro[e.centro_costo] = (centro[e.centro_costo] || 0) + +e.monto;
+    const c = e.categoria || "Otros";
+    const cc = e.centro_costo || "Otros";
+
+    cat[c] = (cat[c] || 0) + +e.monto;
+    centro[cc] = (centro[cc] || 0) + +e.monto;
 
     const m = e.fecha.split("-")[1];
     mes[m] = (mes[m] || 0) + +e.monto;
   });
 
+  const ctx1 = document.getElementById("catChart");
+  const ctx2 = document.getElementById("centroChart");
+  const ctx3 = document.getElementById("mesChart");
+
   if (catChart) catChart.destroy();
-  catChart = new Chart(catChartCanvas, {
+  catChart = new Chart(ctx1, {
     type: "pie",
     data: { labels: Object.keys(cat), datasets: [{ data: Object.values(cat) }] }
   });
 
   if (centroChart) centroChart.destroy();
-  centroChart = new Chart(centroChartCanvas, {
+  centroChart = new Chart(ctx2, {
     type: "bar",
     data: { labels: Object.keys(centro), datasets: [{ data: Object.values(centro) }] }
   });
 
   if (mesChart) mesChart.destroy();
-  mesChart = new Chart(mesChartCanvas, {
+  mesChart = new Chart(ctx3, {
     type: "line",
     data: { labels: Object.keys(mes), datasets: [{ data: Object.values(mes) }] }
   });
@@ -235,21 +277,29 @@ function generarInsights(data) {
   div.innerHTML = "";
 
   const total = data.reduce((sum, e) => sum + +e.monto, 0);
-  const mayor = data.sort((a,b)=>b.monto-a.monto)[0];
+  const mayor = [...data].sort((a,b)=>b.monto-a.monto)[0];
 
-  div.innerHTML += `<div class="insight">💰 Total gastado: $${total}</div>`;
+  if (!mayor) return;
+
+  div.innerHTML += `<div class="insight">💰 Total: $${total}</div>`;
   div.innerHTML += `<div class="insight">🔥 Mayor gasto: ${mayor.descripcion} ($${mayor.monto})</div>`;
 }
 
 // API
 async function cargarEgresos() {
-  const res = await fetch("/egresos");
-  renderTabla(await res.json());
+  const res = await fetch("/egresos", {
+    headers: { Authorization: token }
+  });
+  const data = await res.json();
+  renderTabla(data);
 }
 
 async function filtrarEgresos() {
-  const res = await fetch(`/egresos/mes?mes=${mes.value}&anio=${anio.value}`);
-  renderTabla(await res.json());
+  const res = await fetch(`/egresos/mes?mes=${mes.value}&anio=${anio.value}`, {
+    headers: { Authorization: token }
+  });
+  const data = await res.json();
+  renderTabla(data);
 }
 
 function descargarExcel() {
@@ -262,7 +312,10 @@ form.addEventListener("submit", async e => {
 
   await fetch("/egresos", {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": token
+    },
     body: JSON.stringify({
       fecha: fecha.value,
       tipo: "gasto",

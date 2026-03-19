@@ -1,21 +1,102 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-  <title>Login</title>
+  <meta charset="UTF-8">
+  <title>Login - Dashboard Financiero</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+
+    .container {
+      background: #1e293b;
+      padding: 40px;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      animation: fadeIn 0.6s ease-in-out;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border: none;
+      border-radius: 8px;
+      background: #334155;
+      color: white;
+      font-size: 14px;
+    }
+
+    input::placeholder {
+      color: #94a3b8;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #3b82f6, #22c55e);
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+      transform: scale(1.02);
+    }
+
+    .error {
+      color: #f87171;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
+
 <body>
 
-<h2>Login</h2>
+<div class="container">
+  <h1>💼 Dashboard Financiero</h1>
 
-<input id="email" placeholder="Email"><br><br>
-<input id="password" type="password" placeholder="Password"><br><br>
+  <input id="email" placeholder="Correo electrónico">
+  <input id="password" type="password" placeholder="Contraseña">
 
-<button onclick="login()">Entrar</button>
+  <button onclick="login()">Iniciar Sesión</button>
+
+  <div id="error" class="error"></div>
+</div>
 
 <script>
 async function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
+  const errorDiv = document.getElementById("error");
+
+  errorDiv.innerText = "";
 
   try {
     const res = await fetch("/login", {
@@ -29,18 +110,25 @@ async function login() {
     const data = await res.json();
 
     if (!data.token) {
-      alert("Error en login");
+      errorDiv.innerText = "Credenciales incorrectas";
       return;
     }
 
+    // 🔐 Guardar token
     localStorage.setItem("token", data.token);
 
-    alert("Login exitoso 🚀");
+    // 🚀 Redirigir
+    window.location.href = "/";
 
   } catch (error) {
     console.error(error);
-    alert("Error conectando con el servidor");
+    errorDiv.innerText = "Error conectando con el servidor";
   }
+}
+
+// 🔒 Si ya está logueado, entra directo
+if (localStorage.getItem("token")) {
+  window.location.href = "/";
 }
 </script>
 
